@@ -1,13 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
-const SYLLABLES = [
-  'ba', 'be', 'bi', 'bo', 'bu', 'by',
-  'ca', 'ce', 'ci', 'co', 'cu', 'cy',
-  'fe', 'fi', 'fo', 'fu', 'fy',
-  'ga', 'ge', 'gi', 'go', 'gu', 'gy',
-  'ha', 'he', 'hi', 'ho', 'hu', 'hy',
-  'ja', 'je', 'jo', 'ju'
+const SYLLABLES_K = [
+  'ba', 'bo', 'bu', 'by', // bak, bok, buk, byk
+  'ha', 'hu', // hak, huk
+  'ja', // jak
+  'ko', // kok
+  'le', 'lo', // lek, lok
+  'łu', 'ły', // łuk, łyk
+  'ma', // mak
+  'ra', 'ro', 'ry', // rak, rok, ryk
+  'so', 'sy', // sok, syk
+  'ta' // tak
+];
+
+const SYLLABLES_S = [
+  'ba', 'bi', 'bu', // bas, bis, bus
+  'ci', // cis
+  'ko', // kos
+  'la', 'li', 'lo', // las, lis, los
+  'mu', // mus
+  'no', // nos
+  'pa', // pas
+  'so', 'su' // sos, sus
 ];
 
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y', 'ą', 'ę', 'ó']);
@@ -79,10 +94,106 @@ const LegoBrick = ({
   );
 };
 
+const SettingsModal = ({
+    onSave,
+    initialSyllables,
+    initialRight
+}: {
+    onSave: (syls: string[], right: 'k' | 's') => void;
+    initialSyllables: string[];
+    initialRight: 'k' | 's';
+}) => {
+    const [sc, setSc] = useState<Set<string>>(new Set(initialSyllables));
+    const [right, setRight] = useState<'k' | 's'>(initialRight);
+
+    const currentSyllables = right === 'k' ? SYLLABLES_K : SYLLABLES_S;
+
+    const toggleSyl = (s: string) => {
+        setSc(prev => {
+            const next = new Set(prev);
+            if (next.has(s)) next.delete(s);
+            else next.add(s);
+            return next;
+        });
+    };
+
+    const selectAllSyls = (selectAll: boolean) => {
+        if (selectAll) setSc(new Set(currentSyllables));
+        else setSc(new Set());
+    };
+
+    const handleRightChange = (val: 'k' | 's') => {
+        setRight(val);
+        setSc(new Set(val === 'k' ? SYLLABLES_K : SYLLABLES_S));
+    };
+
+    const handleSave = () => {
+        if (sc.size === 0) {
+            alert('Wybierz przynajmniej jedną sylabę!');
+            return;
+        }
+        onSave(Array.from(sc), right);
+    };
+
+    return (
+        <div className="modal-overlay">
+            <div className="modal-content">
+                <h2>Wybierz grające sylaby</h2>
+                <p style={{fontSize: '0.85rem', color: '#64748b', textAlign: 'center', marginTop: '-15px'}}>
+                    Po przeczytaniu wyrazu wciśnij klawisz "1", by pojawił się klocek-nagroda.
+                </p>
+                
+                <div style={{ background: '#f1f5f9', padding: '15px 20px', borderRadius: '12px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: '#1e293b', borderBottom: '2px solid #cbd5e1', paddingBottom: '10px' }}>Prawa strona (Zakończenie)</h3>
+                    <div style={{ display: 'flex', gap: '20px' }}>
+                        <label className="checkbox-label" style={{ opacity: right === 'k' ? 1 : 0.6 }}>
+                            <input type="radio" name="rEnding" checked={right === 'k'} onChange={() => handleRightChange('k')} />
+                            k
+                        </label>
+                        <label className="checkbox-label" style={{ opacity: right === 's' ? 1 : 0.6 }}>
+                            <input type="radio" name="rEnding" checked={right === 's'} onChange={() => handleRightChange('s')} />
+                            s
+                        </label>
+                    </div>
+                </div>
+
+                <div className="settings-columns">
+                    <div className="settings-column">
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottom: '2px solid #cbd5e1', paddingBottom: 10}}>
+                            <h3 style={{margin: 0, border: 'none', padding: 0}}>Lewa strona</h3>
+                            <div>
+                                <button className="small-btn" onClick={() => selectAllSyls(true)}>Wszystkie</button>
+                                <button className="small-btn" onClick={() => selectAllSyls(false)} style={{marginLeft: 5}}>Żadne</button>
+                            </div>
+                        </div>
+                        <div className="checkbox-grid">
+                            {currentSyllables.map(s => (
+                                <label key={s} className="checkbox-label">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sc.has(s)} 
+                                        onChange={() => toggleSyl(s)}
+                                    />
+                                    {s}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <button className="save-btn" onClick={handleSave}>Rozpocznij grę!</button>
+            </div>
+        </div>
+    );
+};
+
 function App() {
+  const [showSettings, setShowSettings] = useState(true);
+  const [activeSyllables, setActiveSyllables] = useState<string[]>(SYLLABLES_K);
   const [targetSyllable, setTargetSyllable] = useState<string>('ba');
   const [spinningItems, setSpinningItems] = useState<string[]>([]);
   const [spinPhase, setSpinPhase] = useState<'idle' | 'spinning' | 'waiting'>('idle');
+  const [targetRight, setTargetRight] = useState<'k' | 's'>('k');
   const slotRef = useRef<HTMLDivElement>(null);
   
   // ==== STATE DLA KLOCKÓW ====
@@ -119,7 +230,7 @@ function App() {
       // Wyśrodkowanie klocka nad maszyną losującą
       const w = LEGO_WIDTHS[Math.floor(Math.random() * LEGO_WIDTHS.length)];
       const startX = -289 - (w * STUD_SIZE) / 2; // -289 to precyzyjny środek maszyny od lewej listwy tablicy
-      const startY = 80; // Obniżone nad maszynę
+      const startY = -30; // Podniesione wyżej, żeby całkowicie minąć obrys maszyny
       
       setLegoBricks(prev => [
           ...prev,
@@ -138,14 +249,25 @@ function App() {
     if (spinPhase !== 'idle') return;
     setSpinPhase('spinning');
     
-    let newTarget = SYLLABLES[Math.floor(Math.random() * SYLLABLES.length)];
+    const FORBIDDEN_WORDS = new Set(['cum', 'fuk', 'fok', 'cok', 'ham']);
+    const getValidPair = () => {
+      let s = '', r = targetRight;
+      while (true) {
+        s = activeSyllables[Math.floor(Math.random() * activeSyllables.length)];
+        if (!FORBIDDEN_WORDS.has((s + r).toLowerCase())) return { s, r };
+      }
+    };
+
+    let { s: newTarget } = getValidPair();
     while (newTarget === targetSyllable) {
-      newTarget = SYLLABLES[Math.floor(Math.random() * SYLLABLES.length)];
+      const pair = getValidPair();
+      newTarget = pair.s;
     }
 
     const sequence: string[] = [newTarget];
     for (let i = 0; i < 39; i++) {
-        sequence.push(SYLLABLES[Math.floor(Math.random() * SYLLABLES.length)]);
+        const p = getValidPair();
+        sequence.push(p.s);
     }
     sequence.push(targetSyllable);
     
@@ -275,7 +397,20 @@ function App() {
   };
 
   return (
-    <div 
+    <>
+      {showSettings && (
+          <SettingsModal 
+              initialSyllables={activeSyllables} 
+              initialRight={targetRight}
+              onSave={(syls, right) => {
+                  setActiveSyllables(syls);
+                  setTargetRight(right);
+                  setTargetSyllable(syls[0] || 'ba');
+                  setShowSettings(false);
+              }} 
+          />
+      )}
+      <div 
         className="app-container"
         onPointerMove={handlePointerMoveBoard}
         onPointerUp={handlePointerUpBoard}
@@ -283,7 +418,7 @@ function App() {
         onPointerLeave={handlePointerUpBoard}
     >
       <div className="header">
-        <h1 className="title">Losowanie i budowanie z Kubą</h1>
+        <h1 className="title">Losowanie i budowanie z Dzieszkoła.pl</h1>
       </div>
 
       <div className="main-content">
@@ -313,9 +448,9 @@ function App() {
               </div>
               
               <div className="tile-part right">
-                  <div className="slot-item">
-                     <ColoredSyllable text="k" />
-                  </div>
+                   <div className="slot-item">
+                      <ColoredSyllable text={targetRight} />
+                   </div>
               </div>
             </div>
             
@@ -329,6 +464,14 @@ function App() {
               </button>
             </div>
           </div>
+          <button 
+            className="settings-btn"
+            style={{ marginTop: '80px' }}
+            onClick={() => setShowSettings(true)}
+            disabled={spinPhase !== 'idle'}
+          >
+            ⚙️ Ustawienia
+          </button>
         </div>
 
         {/* Prawa strona: Klocki Lego */}
@@ -366,7 +509,8 @@ function App() {
             )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
