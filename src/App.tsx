@@ -25,6 +25,26 @@ const SYLLABLES_S = [
   'so', 'su' // sos, sus
 ];
 
+const EMOJI_MAP: Record<string, string> = {
+  'bak': '⛽',    'bok': '📦',    'buk': '🌳',    'byk': '🐃',
+  'hak': '🪝',    'huk': '💥',
+  'jak': '❓',    
+  'kok': '👱‍♀️',
+  'lek': '💊',    'lok': '👩‍🦱',
+  'łuk': '🏹',    'łyk': '🥤',
+  'mak': '🌺',
+  'rak': '🦀',    'rok': '📅',    'ryk': '🦁',
+  'sok': '🧃',    'syk': '🐍',
+  'tak': '👍',
+  'bas': '🎸',    'bis': '👏',    'bus': '🚌',    'cis': '🌲',
+  'kos': '🐦',
+  'las': '🌲',    'lis': '🦊',    'los': '🎲',
+  'mus': '🥣',    
+  'nos': '👃',
+  'pas': '🥋',
+  'sos': '🥫',    'sus': '🦘'
+};
+
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y', 'ą', 'ę', 'ó']);
 const LEGO_WIDTHS = [2, 3, 4]; // Wypustki
 const STUD_SIZE = 40; // 40px szerokości na wypustkę
@@ -190,10 +210,12 @@ const SettingsModal = ({
 function App() {
   const [showSettings, setShowSettings] = useState(true);
   const [activeSyllables, setActiveSyllables] = useState<string[]>(SYLLABLES_K);
+  const [unusedSyllables, setUnusedSyllables] = useState<string[]>(SYLLABLES_K);
   const [targetSyllable, setTargetSyllable] = useState<string>('ba');
   const [spinningItems, setSpinningItems] = useState<string[]>([]);
   const [spinPhase, setSpinPhase] = useState<'idle' | 'spinning' | 'waiting'>('idle');
   const [targetRight, setTargetRight] = useState<'k' | 's'>('k');
+  const [rewardPos, setRewardPos] = useState({ x: -289, y: 100 });
   const slotRef = useRef<HTMLDivElement>(null);
   
   // ==== STATE DLA KLOCKÓW ====
@@ -227,17 +249,28 @@ function App() {
   }, []);
 
   const addRandomLego = () => {
-      // Wyśrodkowanie klocka nad maszyną losującą
       const w = LEGO_WIDTHS[Math.floor(Math.random() * LEGO_WIDTHS.length)];
       const startX = -289 - (w * STUD_SIZE) / 2; // -289 to precyzyjny środek maszyny od lewej listwy tablicy
-      const startY = -30; // Podniesione wyżej, żeby całkowicie minąć obrys maszyny
+      const h = Math.random() > 0.6 ? 2 : 1; // 40% szans na rzad dwoch klockow wzwyz
+      
+      let startY = 100;
+      if (boardRef.current) {
+          const machine = document.querySelector('.cartoon-slot-machine');
+          if (machine) {
+              const mRect = machine.getBoundingClientRect();
+              const bRect = boardRef.current.getBoundingClientRect();
+              const brickHeight = h * BRICK_HEIGHT_STEP;
+              // Ustawiamy klocka tak, żeby jego dolna krawędź była 50px nad maszyną
+              startY = mRect.top - bRect.top - brickHeight - 50;
+          }
+      }
       
       setLegoBricks(prev => [
           ...prev,
           {
               id: Math.random().toString(36).substr(2, 9),
               width: w,
-              height: Math.random() > 0.6 ? 2 : 1, // 40% szans na rzad dwoch klockow wzwyz
+              height: h,
               color: getRandomColor(),
               x: startX,
               y: startY
@@ -245,29 +278,32 @@ function App() {
       ]);
   }
 
+  const hasUnplacedBricks = legoBricks.some(b => b.x < 0);
+
   const startSpin = () => {
-    if (spinPhase !== 'idle') return;
+    if (spinPhase !== 'idle' || hasUnplacedBricks) return;
     setSpinPhase('spinning');
     
-    const FORBIDDEN_WORDS = new Set(['cum', 'fuk', 'fok', 'cok', 'ham']);
-    const getValidPair = () => {
-      let s = '', r = targetRight;
-      while (true) {
-        s = activeSyllables[Math.floor(Math.random() * activeSyllables.length)];
-        if (!FORBIDDEN_WORDS.has((s + r).toLowerCase())) return { s, r };
-      }
-    };
+    let currentPool = unusedSyllables.length > 0 ? unusedSyllables : activeSyllables;
+    if (currentPool.length === 0) currentPool = activeSyllables;
 
-    let { s: newTarget } = getValidPair();
-    while (newTarget === targetSyllable) {
-      const pair = getValidPair();
-      newTarget = pair.s;
+    const getRandomSyl = (pool: string[]) => pool[Math.floor(Math.random() * pool.length)];
+
+    let newTarget = getRandomSyl(currentPool);
+    while (newTarget === targetSyllable && currentPool.length > 1) {
+      newTarget = getRandomSyl(currentPool);
+    }
+
+    const nextUnused = currentPool.filter(s => s !== newTarget);
+    if (nextUnused.length === 0) {
+        setUnusedSyllables(activeSyllables.filter(s => s !== newTarget));
+    } else {
+        setUnusedSyllables(nextUnused);
     }
 
     const sequence: string[] = [newTarget];
     for (let i = 0; i < 39; i++) {
-        const p = getValidPair();
-        sequence.push(p.s);
+        sequence.push(getRandomSyl(activeSyllables));
     }
     sequence.push(targetSyllable);
     
@@ -277,7 +313,18 @@ function App() {
     setTimeout(() => {
         setSpinningItems([newTarget]);
         
-        // Zatrzymujemy w statusie "waiting", bez spawnowania klocka
+        let y = 100;
+        if (boardRef.current) {
+            const machine = document.querySelector('.cartoon-slot-machine');
+            if (machine) {
+                const mRect = machine.getBoundingClientRect();
+                const bRect = boardRef.current.getBoundingClientRect();
+                y = mRect.top - bRect.top - 100; // 100px gap dla emoji
+            }
+        }
+        setRewardPos({ x: -289, y });
+
+        // Zatrzymujemy w statusie "waiting", pokazując emoji
         setSpinPhase('waiting');
 
     }, 3000);
@@ -406,6 +453,7 @@ function App() {
                   setActiveSyllables(syls);
                   setTargetRight(right);
                   setTargetSyllable(syls[0] || 'ba');
+                  setUnusedSyllables(syls);
                   setShowSettings(false);
               }} 
           />
@@ -458,7 +506,7 @@ function App() {
               <button 
                 className={`spin-btn ${spinPhase !== 'idle' ? 'pressed' : ''}`}
                 onClick={startSpin}
-                disabled={spinPhase !== 'idle'}
+                disabled={spinPhase !== 'idle' || hasUnplacedBricks}
               >
                   {spinPhase === 'spinning' ? 'Losowanie...' : 'Start!'}
               </button>
@@ -506,6 +554,18 @@ function App() {
               <div style={{position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity: 0.3, letterSpacing: '2px', fontWeight: 800, color: 'white', fontSize: '2rem'}}>
                 KLOCKI LEGO POJAWIĄ SIĘ<br/>PO PIERWSZYM LOSOWANIU
               </div>
+            )}
+
+            {spinPhase === 'waiting' && EMOJI_MAP[(targetSyllable + targetRight).toLowerCase()] && (
+                <div 
+                  className="word-graphic" 
+                  style={{ 
+                    left: rewardPos.x, 
+                    top: rewardPos.y
+                  }}
+                >
+                    {EMOJI_MAP[(targetSyllable + targetRight).toLowerCase()]}
+                </div>
             )}
         </div>
       </div>
