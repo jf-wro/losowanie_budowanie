@@ -25,6 +25,15 @@ const SYLLABLES_S = [
   'so', 'su' // sos, sus
 ];
 
+const SYLLABLES_T = [
+  'ba', 'bi', 'bu', // bat, bit, but
+  'cy', // cyt
+  'hi', // hit
+  'ka', 'ko', // kat, kot
+  'la', 'lo', // lat, lot
+  'ma' // mat
+];
+
 const EMOJI_MAP: Record<string, string> = {
   'bak': '⛽',    'bok': '📦',    'buk': '🌳',    'byk': '🐃',
   'hak': '🪝',    'huk': '💥',
@@ -42,7 +51,10 @@ const EMOJI_MAP: Record<string, string> = {
   'mus': '🥣',    
   'nos': '👃',
   'pas': '🥋',
-  'sos': '🥫',    'sus': '🦘'
+  'sos': '🥫',    'sus': '🦘',
+  'bat': '🏇',    'bit': '💾',    'but': '👞',    'cyt': '🤫',
+  'hit': '🌟',    'kat': '🪓',    'kot': '🐱',    'lat': '📅',
+  'lot': '✈️',    'mat': '♟️'
 };
 
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y', 'ą', 'ę', 'ó']);
@@ -119,14 +131,14 @@ const SettingsModal = ({
     initialSyllables,
     initialRight
 }: {
-    onSave: (syls: string[], right: 'k' | 's') => void;
+    onSave: (syls: string[], right: 'k' | 's' | 't') => void;
     initialSyllables: string[];
-    initialRight: 'k' | 's';
+    initialRight: 'k' | 's' | 't';
 }) => {
     const [sc, setSc] = useState<Set<string>>(new Set(initialSyllables));
-    const [right, setRight] = useState<'k' | 's'>(initialRight);
+    const [right, setRight] = useState<'k' | 's' | 't'>(initialRight);
 
-    const currentSyllables = right === 'k' ? SYLLABLES_K : SYLLABLES_S;
+    const currentSyllables = right === 'k' ? SYLLABLES_K : (right === 's' ? SYLLABLES_S : SYLLABLES_T);
 
     const toggleSyl = (s: string) => {
         setSc(prev => {
@@ -142,9 +154,9 @@ const SettingsModal = ({
         else setSc(new Set());
     };
 
-    const handleRightChange = (val: 'k' | 's') => {
+    const handleRightChange = (val: 'k' | 's' | 't') => {
         setRight(val);
-        setSc(new Set(val === 'k' ? SYLLABLES_K : SYLLABLES_S));
+        setSc(new Set(val === 'k' ? SYLLABLES_K : (val === 's' ? SYLLABLES_S : SYLLABLES_T)));
     };
 
     const handleSave = () => {
@@ -173,6 +185,10 @@ const SettingsModal = ({
                         <label className="checkbox-label" style={{ opacity: right === 's' ? 1 : 0.6 }}>
                             <input type="radio" name="rEnding" checked={right === 's'} onChange={() => handleRightChange('s')} />
                             s
+                        </label>
+                        <label className="checkbox-label" style={{ opacity: right === 't' ? 1 : 0.6 }}>
+                            <input type="radio" name="rEnding" checked={right === 't'} onChange={() => handleRightChange('t')} />
+                            t
                         </label>
                     </div>
                 </div>
@@ -214,7 +230,7 @@ function App() {
   const [targetSyllable, setTargetSyllable] = useState<string>('ba');
   const [spinningItems, setSpinningItems] = useState<string[]>([]);
   const [spinPhase, setSpinPhase] = useState<'idle' | 'spinning' | 'waiting'>('idle');
-  const [targetRight, setTargetRight] = useState<'k' | 's'>('k');
+  const [targetRight, setTargetRight] = useState<'k' | 's' | 't'>('k');
   const [rewardPos, setRewardPos] = useState({ x: -289, y: 100 });
   const slotRef = useRef<HTMLDivElement>(null);
   
